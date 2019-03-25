@@ -70,25 +70,30 @@ fi
 # product name, may be set more than once, if it depends on branding value
 product="$(sed -n -e "s|^export CONFIG_PRODUKT_NAME=\"\?\([^\"]*\)\"\?\$|\1|p" "$src/etc/init.d/rc.conf" | sed -n -e "1p")"
 
-# output data
-printf "Model=\"%s\"\n" "$model"
-printf "Product=\"%s\"\n" "$product"
-printf "Date=\"%s\"\n" "$date"
-printf "Version=\"%s.%s\"\n" "$version_major" "$version"
-printf "Subversion=\"%s\"\n" "$subversion"
-printf "Buildnumber=\"%s\"\n" "$buildnumber"
-printf "Buildtype=\"%s\"\n" "$buildtype"
-printf "Brandings=\"%s\"\n" "$brandings"
-printf "Release=\"%s\"\n" "$release"
-printf "BetaRelease=\"%s\"\n" "$beta_release"
-printf "LaborName=\"%s\"\n" "$labor_id_name"
-printf "DirtyBuild=\"%s\"\n" "$build_dirty"
+HWRevision="$(( version_major + 72 ))"
+
+# log and output data
+printf "Model=\"%s\"\n" "$model" 1>&2
+printf "Product=\"%s\"\n" "$product" 1>&2
+printf "Date=\"%s\"\n" "$date" 1>&2
+printf "Version=\"%s.%s\"\n" "$version_major" "$version" 1>&2
+printf "Subversion=\"%s\"\n" "$subversion" 1>&2
+printf "Buildnumber=\"%s\"\n" "$buildnumber" 1>&2
+printf "Buildtype=\"%s\"\n" "$buildtype" 1>&2
+printf "Brandings=\"%s\"\n" "$brandings" 1>&2
+printf "Release=\"%s\"\n" "$release" 1>&2
+printf "BetaRelease=\"%s\"\n" "$beta_release" 1>&2
+printf "LaborName=\"%s\"\n" "$labor_id_name" 1>&2
+printf "DirtyBuild=\"%s\"\n" "$build_dirty" 1>&2
 for k in $src/etc/avm_firmware_public_key* $src/etc/plugin_global_key.pem; do
 	[ -f "$k" ] || continue
 	key="$(expr "$k" : ".*avm_firmware_public_key\(.*\)")"
 	[ -z "$key" ] && key="PluginKey" || key="PublicKey$key"
 	keyvalue="$(sed -n -e "1p" "$k")"
-	printf "%s=\"%s\"\n" "$key" "$keyvalue"
+	printf "%s=\"%s\"\n" "$key" "$keyvalue" 1>&2
+
+	# output data
+	printf "HWRevision='%s' VersionMajor='%s' Model='%s' Name='%s' Source='%s' Modulus='%s' Exponent='%s'\n" "$HWRevision" "$version_major" "$product" "${k##*/}" "vendor" "$keyvalue" "$(sed -n -e '2p' "$k")"
 done
 
 exit 0
