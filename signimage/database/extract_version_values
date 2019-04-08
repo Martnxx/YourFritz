@@ -1,8 +1,70 @@
 #! /bin/bash
+#######################################################################################################
+#                                                                                                     #
+# get version information from unpacked firmware files                                                #
+#                                                                                                     #
+###################################################################################################VER#
+#                                                                                                     #
+# extract_version_values, version 0.6                                                                 #
+#                                                                                                     #
+# This script is a part of the YourFritz project from https://github.com/PeterPawn/YourFritz.         #
+#                                                                                                     #
+###################################################################################################CPY#
+#                                                                                                     #
+# Copyright (C) 2017-2019 P.Haemmerlein (peterpawn@yourfritz.de)                                      #
+#                                                                                                     #
+###################################################################################################LIC#
+#                                                                                                     #
+# This project is free software, you can redistribute it and/or modify it under the terms of the GNU  #
+# General Public License as published by the Free Software Foundation; either version 2 of the        #
+# License, or (at your option) any later version.                                                     #
+#                                                                                                     #
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without   #
+# even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      #
+# General Public License under http://www.gnu.org/licenses/gpl-2.0.html for more details.             #
+#                                                                                                     #
+#######################################################################################################
+#                                                                                                     #
+# Run the script without parameters for an usage description.                                         #
+#                                                                                                     #
+#######################################################################################################
+usage()
+(
+	printf "Extract version information from an unpacked filesystem tree of FRITZ!OS.\n\n"
+	printf "Copyright (C) 2017-2019 P. Haemmerlein (peterpawn@yourfritz.de)\n\n"
+	printf "Usage:\n\n"
+	printf "\033[1m%s\033[0m <local_directory> [ -q | -m ]\n\n" "${0##*/}"
+	printf "Version information will be extracted from the specified tree. If no '-q'\n"
+	printf "option was specified, some info for the contained FRITZ!OS will be put out\n"
+	printf "on STDERR, while the values needed for database generator get written to\n"
+	printf "STDOUT.\n\n"
+	printf "The caller is responsible for proper redirection, e.g. appending STDOUT data\n"
+	printf "to a file, which may be used as input for 'generate_database'.\n"
+	printf "If the '-m' option was specified, no data for key generator will be written\n"
+	printf "to STDOUT, instead the STDERR info gets redirected to STDOUT and the script\n"
+	printf "shows the version info there.\n"
+)
+
+[ -z "$1" ] && usage && exit 0
+
 src="$1"
+shift
+
+if [ "$1" = "-q" ]; then
+	quiet=1
+	redirect=0
+	shift
+else
+	quiet=0
+	redirect=0
+	if [ "$1" = "-m" ]; then
+		redirect=1
+	fi
+fi
 
 files=$(find "$src" -type f | wc -l)
 [ "$files" -lt 2 ] && printf "Unsupported filesystem format.\n" 1>&2 && exit 1
+( ! [ -f "$src/etc/init.d/rc.conf" ] || ! [ -f "$src/etc/version" ] ) && printf "Missing version files.\n" 1>&2 && exit 1
 
 # values from rc.conf
 
@@ -73,6 +135,12 @@ product="$(sed -n -e "s|^export CONFIG_PRODUKT_NAME=\"\?\([^\"]*\)\"\?\$|\1|p" "
 HWRevision="$(( version_major + 72 ))"
 
 # log and output data
+if [ $quiet -eq 1 ]; then
+	exec 2>/dev/null
+elif [ $redirect -eq 1 ]; then
+	exec 2>&1
+fi
+
 printf "Model=\"%s\"\n" "$model" 1>&2
 printf "Product=\"%s\"\n" "$product" 1>&2
 printf "Date=\"%s\"\n" "$date" 1>&2
@@ -93,7 +161,11 @@ for k in $src/etc/avm_firmware_public_key* $src/etc/plugin_global_key.pem; do
 	printf "%s=\"%s\"\n" "$key" "$keyvalue" 1>&2
 
 	# output data
-	printf "HWRevision='%s' VersionMajor='%s' Model='%s' Name='%s' Source='%s' Modulus='%s' Exponent='%s'\n" "$HWRevision" "$version_major" "$product" "${k##*/}" "vendor" "$keyvalue" "$(sed -n -e '2p' "$k")"
+	[ $redirect -eq 0 ] && printf "HWRevision='%s' VersionMajor='%s' Model='%s' Name='%s' Source='%s' Modulus='%s' Exponent='%s'\n" "$HWRevision" "$version_major" "$product" "${k##*/}" "vendor" "$keyvalue" "$(sed -n -e '2p' "$k")"
 done
-
+#######################################################################################################
+#                                                                                                     #
+# end of script, no cleanup necessary                                                                 #
+#                                                                                                     #
+#######################################################################################################
 exit 0
